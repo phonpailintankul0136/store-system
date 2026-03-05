@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบการเบิกของธุรการ</title>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Sarabun','Noto Sans Thai',sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh}
+  input,select{width:100%;background:#0f1117;border:1px solid #2d3748;border-radius:8px;padding:10px 14px;color:#e2e8f0;font-size:14px;font-family:inherit;outline:none;box-sizing:border-box}
+  input:focus,select:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.2)}
+  button{cursor:pointer;font-family:inherit}
+  .card{background:#1a1f2e;border-radius:14px;padding:22px;margin-bottom:18px;border:1px solid #1e293b}
+  .label{display:block;font-size:11px;color:#94a3b8;margin-bottom:5px;letter-spacing:.8px;text-transform:uppercase}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{background:#0f1117;padding:10px 14px;text-align:left;color:#94a3b8;font-size:11px;text-transform:uppercase;border-bottom:1px solid #1e293b}
+  td{padding:10px 14px;border-bottom:1px solid #1e293b;color:#e2e8f0}
+  tr:hover td{background:rgba(37,99,235,.06)}
+  .tab-btn{padding:13px 18px;cursor:pointer;font-size:14px;font-weight:600;background:none;border:none;border-bottom:3px solid transparent;font-family:inherit;white-space:nowrap;color:#64748b}
+  .tab-btn.active{color:#60a5fa;border-bottom:3px solid #2563eb}
+  .btn{color:#fff;border:none;border-radius:8px;padding:11px 22px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;transition:opacity .15s}
+  .btn:hover{opacity:.82}
+  .badge-ok{display:inline-block;padding:3px 11px;border-radius:20px;font-size:12px;font-weight:700;background:#064e3b;color:#34d399}
+  .badge-low{display:inline-block;padding:3px 11px;border-radius:20px;font-size:12px;font-weight:700;background:#1c3a1a;color:#86efac}
+  .badge-zero{display:inline-block;padding:3px 11px;border-radius:20px;font-size:12px;font-weight:700;background:#3b1f1f;color:#f87171}
+  .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:14px}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div style="background:linear-gradient(135deg,#1a1f2e,#16213e);border-bottom:2px solid #2563eb;padding:16px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+  <div style="width:44px;height:44px;background:linear-gradient(135deg,#2563eb,#06b6d4);border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px">🏭</div>
+  <div>
+    <div style="font-size:20px;font-weight:800;color:#fff">ระบบการเบิกของธุรการ</div>
+    <div style="font-size:11px;color:#94a3b8;letter-spacing:2px">GENERAL AFFAIRS REQUISITION SYSTEM</div>
+  </div>
+  <div style="margin-left:auto;display:flex;gap:10px;align-items:center">
+    <div id="gasStatus" style="display:flex;align-items:center;gap:7px;font-size:12px;background:#052e16;border:1px solid #166534;border-radius:20px;padding:5px 14px;color:#34d399">
+      <span id="gasDot" style="width:8px;height:8px;border-radius:50%;background:#34d399;display:inline-block"></span>
+      <span id="gasText">🔗 Google Sheet พร้อม</span>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:11px;color:#94a3b8">รายการทั้งหมด</div>
+      <div id="totalItems" style="font-size:24px;font-weight:800;color:#60a5fa">0</div>
+    </div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div style="display:flex;background:#1a1f2e;border-bottom:1px solid #1e293b;padding:0 20px;overflow-x:auto">
+  <button class="tab-btn active" onclick="switchTab(0)">📊 ยอดคงเหลือ</button>
+  <button class="tab-btn" onclick="switchTab(1)">📥 รับเข้า</button>
+  <button class="tab-btn" onclick="switchTab(2)">📤 เบิกจ่าย</button>
+  <button class="tab-btn" onclick="switchTab(3)">📋 ประวัติ</button>
+</div>
+
+<div style="padding:22px 20px;max-width:1100px;margin:0 auto">
+
+  <!-- TAB 0: STOCK -->
+  <div id="tab0">
+    <div style="font-size:16px;font-weight:700;color:#60a5fa;margin-bottom:14px">📊 ยอดสินค้าคงเหลือ</div>
+    <div class="card">
+      <input type="text" id="searchInput" placeholder="🔍  ค้นหารหัสหรือชื่อสินค้า..." oninput="renderStock()">
+    </div>
+    <div class="card">
+      <div style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+        <div style="flex:1;min-width:90px;background:#0f1117;border-radius:10px;padding:14px 16px;text-align:center">
+          <div id="statTotal" style="font-size:26px;font-weight:800;color:#60a5fa">0</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:3px">ทั้งหมด</div>
+        </div>
+        <div style="flex:1;min-width:90px;background:#0f1117;border-radius:10px;padding:14px 16px;text-align:center">
+          <div id="statHas" style="font-size:26px;font-weight:800;color:#34d399">0</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:3px">มีของ</div>
+        </div>
+        <div style="flex:1;min-width:90px;background:#0f1117;border-radius:10px;padding:14px 16px;text-align:center">
+          <div id="statZero" style="font-size:26px;font-weight:800;color:#f87171">0</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:3px">หมด/ต่ำกว่า 0</div>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table><thead><tr>
+          <th>#</th><th>รหัสสินค้า</th><th>รายการสินค้า</th><th>หน่วย</th><th>คงเหลือ</th>
+        </tr></thead>
+        <tbody id="stockBody"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 1: RECEIVE -->
+  <div id="tab1" style="display:none">
+    <div style="font-size:16px;font-weight:700;color:#34d399;margin-bottom:14px">📥 บันทึกรับสินค้าเข้า → Google Sheet</div>
+    <div class="card">
+      <div class="grid3">
+        <div><label class="label">รหัสสินค้า *</label>
+          <select id="rcvCode" onchange="updateRcvInfo()">
+            <option value="">-- เลือกสินค้า --</option>
+          </select>
+        </div>
+        <div><label class="label">จำนวนที่รับ *</label>
+          <input type="number" id="rcvQty" min="1" placeholder="0">
+        </div>
+        <div><label class="label">เลขที่เอกสาร</label>
+          <input type="text" id="rcvDoc" placeholder="PO-XXXXX">
+        </div>
+      </div>
+      <div id="rcvInfo" style="display:none;background:#0f1117;border-radius:8px;padding:10px 16px;margin-bottom:14px;font-size:13px"></div>
+      <div style="margin-bottom:16px"><label class="label">หมายเหตุ</label>
+        <input type="text" id="rcvNote" placeholder="หมายเหตุ (ถ้ามี)">
+      </div>
+      <button class="btn" style="background:#059669" onclick="handleReceive()">✅ บันทึกรับเข้า → Google Sheet</button>
+    </div>
+  </div>
+
+  <!-- TAB 2: ISSUE -->
+  <div id="tab2" style="display:none">
+    <div style="font-size:16px;font-weight:700;color:#f59e0b;margin-bottom:14px">📤 บันทึกเบิกจ่าย → Google Sheet</div>
+    <div class="grid2">
+      <div class="card">
+        <div style="font-size:14px;font-weight:700;color:#f59e0b;margin-bottom:14px">➕ เพิ่มรายการ</div>
+        <div style="margin-bottom:12px"><label class="label">เลขที่ใบเบิก</label>
+          <input type="text" id="issDoc" value="">
+        </div>
+        <div style="margin-bottom:12px"><label class="label">แผนกที่เบิก *</label>
+          <select id="issDept"><option value="">-- เลือกแผนก --</option></select>
+        </div>
+        <div style="margin-bottom:12px"><label class="label">รหัสสินค้า</label>
+          <select id="issCode" onchange="updateIssInfo()">
+            <option value="">-- เลือกสินค้า --</option>
+          </select>
+        </div>
+        <div id="issInfo" style="display:none;background:#0f1117;border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:13px"></div>
+        <div style="margin-bottom:12px"><label class="label">จำนวนที่เบิก</label>
+          <input type="number" id="issQty" min="1" placeholder="0">
+        </div>
+        <div style="margin-bottom:14px"><label class="label">หมายเหตุ</label>
+          <input type="text" id="issNote" placeholder="หมายเหตุ (ถ้ามี)">
+        </div>
+        <button class="btn" style="background:#d97706" onclick="addToCart()">+ เพิ่มในตะกร้า</button>
+      </div>
+      <div class="card">
+        <div style="font-size:14px;font-weight:700;color:#60a5fa;margin-bottom:14px">🛒 ตะกร้า (<span id="cartCount">0</span> รายการ)</div>
+        <div id="cartItems"><div style="color:#475569;text-align:center;padding:40px 0;font-size:13px">ยังไม่มีรายการ</div></div>
+        <div id="cartSubmit" style="display:none;margin-top:8px">
+          <button class="btn" style="background:#2563eb;width:100%" onclick="handleIssue()">✅ ยืนยันเบิก → Google Sheet</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: HISTORY -->
+  <div id="tab3" style="display:none">
+    <div style="font-size:16px;font-weight:700;color:#a78bfa;margin-bottom:14px">📋 ประวัติรายการ (Session นี้)</div>
+    <div class="card" style="margin-bottom:14px">
+      <input type="text" id="histSearch" placeholder="🔍  ค้นหาจากรหัส, ชื่อ, แผนก, เลขที่เอกสาร..." oninput="renderHistory()">
+    </div>
+    <div class="card">
+      <div style="overflow-x:auto">
+        <table><thead><tr>
+          <th>วันที่</th><th>ประเภท</th><th>เลขที่</th><th>รหัส</th><th>รายการ</th><th>จำนวน</th><th>หน่วย</th><th>แผนก</th><th>หมายเหตุ</th>
+        </tr></thead>
+        <tbody id="histBody"><tr><td colspan="9" style="text-align:center;color:#475569;padding:40px">ยังไม่มีประวัติ</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzdw5fsCwQNeCmauyAwazX7VUz76dL86qKWurqD9ge317242leZQdPjFt2BO6YpJZvHeA/exec";
+
+const DEPARTMENTS = ["Single(635)","Calotte 1(631)","Calotte 2(632)","Calotte 3(633)","Calotte 4(711)","Sub Assy(644)","FabricatedA(641)","FabricatedB(642)","FabricatedC","New Model(643)","NV (645)","Flat (646)","QS.(421)","QE (522)","QCI.(521)","QCS (523)","QCE (524)","ACC.(312)","Financial(311)","MN.(621)","MRD.(612)","EM(622)","MoId(634)","PE(611)","Purchase(531)","MK (513)","MK.(511)","DS.(431)","Planning(432)","GA(412)","IT (441)","Safety(413)","Personal(411)","HR (411)","PS.(422)"];
+
+let items = [
+  // ── หมวดอุปกรณ์เซฟตี้ ──
+  {code:"SP-GLOVE01",   name:"ถุงมือผ้า 500 กรัม",                           unit:"คู่",    balance:0},
+  {code:"SP-GLOVE04,09",name:"ถุงมือจราจร",                                  unit:"คู่",    balance:0},
+  {code:"SP-GLOVE03",   name:"ถุงมือยางสีส้ม",                               unit:"คู่",    balance:0},
+  {code:"SP-GLOVE11-2", name:"GLOVE SHOWA PLAM FIT BO510 SIZE S(สีขาว)",     unit:"pcs",   balance:0},
+  {code:"SP-GLOVE11-3", name:"GLOVE NITRILE BO5-156 SIZE S(สีเทา)",          unit:"คู่",    balance:0},
+  {code:"SP-GLOVE11",   name:"GLOVE NITIRE PLAM FIT BO5-156-M SIZE M(สีเทา)",unit:"คู่",   balance:0},
+  {code:"SP-GLOVE11-1", name:"GLOVE NITIRE PLAM FIT BO5-156-L SIZE L(สีเทา)",unit:"คู่",   balance:0},
+  {code:"SP-00121-2",   name:"ถุงมือ แบบ PLAM FIT SIZE M (สีขาว)",           unit:"คู่",    balance:0},
+  {code:"SP-RT-01",     name:"ผ้าปิดจมูก",                                   unit:"pcs",   balance:0},
+  {code:"SP-RT04",      name:"FACE MASH 2 PLY",                              unit:"pcs",   balance:0},
+  {code:"SP-RT-03",     name:"FACE MASH 4 PLY (CARBON)",                     unit:"pcs",   balance:0},
+  {code:"SP-GLOVE13",   name:"ถุงมือผ้า โพลี ข้อต่อ",                        unit:"คู่",    balance:0},
+  // ── หมวดอุปกรณ์สำนักงาน ──
+  {code:"1.1.068", name:"กระดาษ A4 70g",                    unit:"รีม",    balance:0},
+  {code:"1.1.001", name:"ไส้ดินสอ",                          unit:"กล่อง", balance:0},
+  {code:"1.1.002", name:"ดินสอ 2B",                          unit:"แท่ง",  balance:0},
+  {code:"1.1.003", name:"ยางลบ",                             unit:"ชิ้น",  balance:0},
+  {code:"1.1.004", name:"ปากกาแดง",                          unit:"ด้าม",  balance:0},
+  {code:"1.1.005", name:"ปากกาน้ำเงิน",                      unit:"ด้าม",  balance:0},
+  {code:"1.1.006", name:"ปากกาไวท์บอร์ดสีน้ำเงิน",           unit:"ด้าม",  balance:0},
+  {code:"1.1.007", name:"ปากกาไวท์บอร์ดสีแดง",               unit:"ด้าม",  balance:0},
+  {code:"1.1.008", name:"ปากกาไวท์บอร์ดสีดำ",                unit:"ด้าม",  balance:0},
+  {code:"1.1.009", name:"ปากกาเคมีสีน้ำเงิน",                unit:"ด้าม",  balance:0},
+  {code:"1.1.010", name:"ปากกาเคมีสีดำ",                     unit:"ด้าม",  balance:0},
+  {code:"1.1.011", name:"ปากกาเน้นข้อความ",                   unit:"ด้าม",  balance:0},
+  {code:"1.1.012", name:"ไม้บรรทัด",                          unit:"อัน",   balance:0},
+  {code:"1.1.013", name:"กาวแท่ง",                           unit:"แท่ง",  balance:0},
+  {code:"1.1.014", name:"ยางลบ",                             unit:"ชิ้น",  balance:0},
+  {code:"1.1.016", name:"ตาไก่",                             unit:"ชิ้น",  balance:0},
+  {code:"1.1.017", name:"ขี้ผึ้งนับแบงค์",                    unit:"กระป๋อง",balance:0},
+  {code:"1.1.018", name:"เครื่องเจาะกระดาษ",                  unit:"เครื่อง",balance:0},
+  {code:"1.1.019", name:"เครื่องเย็บกระดาษ",                  unit:"เครื่อง",balance:0},
+  {code:"1.1.021", name:"คลิปดำเบอร์ 109",                   unit:"กล่อง", balance:0},
+  {code:"1.1.022", name:"คลิปดำเบอร์ 110",                   unit:"กล่อง", balance:0},
+  {code:"1.1.023", name:"คลิปดำเบอร์ 112",                   unit:"กล่อง", balance:0},
+  {code:"1.1.024", name:"คลิปบอร์ด A4",                      unit:"อัน",   balance:0},
+  {code:"1.1.026", name:"ซองจดหมายสีขาว",                     unit:"ซอง",   balance:0},
+  {code:"1.1.027", name:"ซองสีน้ำตาล 9x12 นิ้ว",             unit:"ซอง",   balance:0},
+  {code:"1.1.030", name:"กระดูกงู 1/2 นิ้ว",                 unit:"อัน",   balance:0},
+  {code:"1.1.031", name:"กระดูกงู 1 นิ้ว",                   unit:"อัน",   balance:0},
+  {code:"1.1.032", name:"แฟ้มสันรูด",                         unit:"อัน",   balance:0},
+  {code:"1.1.033", name:"มีดคัตเตอร์เล็ก",                    unit:"ด้าม",  balance:0},
+  {code:"1.1.034", name:"มีดคัตเตอร์ใหญ่",                    unit:"ด้าม",  balance:0},
+  {code:"1.1.035", name:"ใบมีดคัตเตอร์เล็ก",                  unit:"กล่อง", balance:0},
+  {code:"1.1.036", name:"ใบมีดคัตเตอร์ใหญ่",                  unit:"กล่อง", balance:0},
+  {code:"1.1.041", name:"เทปใสแกนเล็ก",                      unit:"ม้วน",  balance:0},
+  {code:"1.1.042", name:"แท่นตัดเทปใส",                      unit:"อัน",   balance:0},
+  {code:"1.1.045", name:"แฟ้มซองพลาสติก A4",                 unit:"อัน",   balance:0},
+  {code:"1.1.049", name:"ลวดเย็บ MAX NO.35",                 unit:"กล่อง", balance:0},
+  {code:"1.1.050", name:"ลวดเย็บ MAX NO.1",                  unit:"กล่อง", balance:0},
+  {code:"1.1.055", name:"สมุดมุมมัน",                         unit:"เล่ม",  balance:0},
+  {code:"1.1.056", name:"สมุดปกอ่อน แบบหนา",                 unit:"เล่ม",  balance:0},
+  {code:"1.1.057", name:"สมุดปกอ่อน แบบบาง",                 unit:"เล่ม",  balance:0},
+  {code:"1.1.059", name:"ไส้แฟ้ม A4 11 รู",                  unit:"แพ็ค",  balance:0},
+  {code:"1.1.062", name:"ก้ามปู",                            unit:"อัน",   balance:0},
+  {code:"1.1.076", name:"กระดาษสีเขียวอ่อน 09",              unit:"รีม",   balance:0},
+  {code:"1.1.077", name:"กระดาษสีชมพู 10",                   unit:"รีม",   balance:0},
+  {code:"1.1.078", name:"กระดาษสีฟ้า 15",                    unit:"รีม",   balance:0},
+  {code:"1.1.079", name:"กระดาษสีฟ้าน้ำทะเล 13",             unit:"รีม",   balance:0},
+  {code:"1.1.080", name:"กระดาษสีฟ้าอ่อน 08",                unit:"รีม",   balance:0},
+  {code:"1.1.081", name:"กระดาษสีเขียวฟ้า 15",               unit:"รีม",   balance:0},
+  {code:"1.1.082", name:"กระดาษสีม่วง 12",                   unit:"รีม",   balance:0},
+  {code:"1.1.083", name:"กระดาษสีเหลืองเข้ม 08",             unit:"รีม",   balance:0},
+  {code:"1.5.045", name:"กระดาษสีฟ้า 06",                    unit:"รีม",   balance:0},
+  {code:"1.1.105", name:"กรรไกร",                            unit:"อัน",   balance:0},
+  {code:"1.2.010", name:"ถุงขยะสีแดง",                       unit:"ม้วน",  balance:0},
+  // ── หมวดอุปกรณ์ทั่วไป ──
+  {code:"1.5.001", name:"ผ้าดิบ",                            unit:"ผืน",   balance:0},
+  {code:"1.5.002", name:"เศษผ้าวน",                          unit:"kg",    balance:0},
+  {code:"1.5.004", name:"ถ่านอัลคาไลน์ AA",                  unit:"ก้อน",  balance:0},
+  {code:"1.5.005", name:"ถ่านอัลคาไลน์ AAA",                 unit:"ก้อน",  balance:0},
+  {code:"1.5.009", name:"กระดาษทิชชูม้วนใหญ่ Kimsoft",       unit:"ม้วน",  balance:0},
+  {code:"1.5.011", name:"ถุงขยะดำ 32x40 นิ้ว",               unit:"ม้วน",  balance:0},
+  {code:"1.5.012", name:"ที่ตักขยะพลาสติก",                   unit:"อัน",   balance:0},
+  {code:"1.5.014", name:"น้ำยาเช็ดกระจก",                     unit:"ขวด",   balance:0},
+  {code:"1.5.015", name:"น้ำยาทำความสะอาดพื้น วิช (ชมพู)",    unit:"ขวด",   balance:0},
+  {code:"1.5.016", name:"น้ำยาขจัดคราบฝังแน่น VLXOL",        unit:"ขวด",   balance:0},
+  {code:"1.5.017", name:"แปรงขัดห้องน้ำ ด้ามสั้น",            unit:"อัน",   balance:0},
+  {code:"1.5.018", name:"แปรงขัดห้องน้ำ ด้ามยาว",             unit:"อัน",   balance:0},
+  {code:"1.5.019", name:"ผงซักผ้า PRO 20KG",                 unit:"ถุง",   balance:0},
+  {code:"1.5.020", name:"ผ้าถูพื้น",                          unit:"ผืน",   balance:0},
+  {code:"1.5.021", name:"ไม้กวาดดอกหญ้า",                     unit:"อัน",   balance:0},
+  {code:"1.5.024", name:"ไม้กวาดทางมะพร้าว",                  unit:"อัน",   balance:0},
+  {code:"1.5.025", name:"ไม้ขนไก่",                           unit:"อัน",   balance:0},
+  {code:"1.5.027", name:"ไม้ถูพื้น",                          unit:"อัน",   balance:0},
+  {code:"1.5.029", name:"เศษผ้าชิ้น",                         unit:"pcs",   balance:0},
+  {code:"1.5.032", name:"น้ำยาล้างมือ",                       unit:"ขวด",   balance:0},
+];
+
+let history = [];
+let cart = [];
+let currentTab = 0;
+
+// ── JSONP (ทำงานได้เมื่อรันจากไฟล์ HTML โดยตรง) ──
+function sendToGAS(payload) {
+  return new Promise((resolve, reject) => {
+    const cbName = "_cb" + Date.now();
+    const timer = setTimeout(() => {
+      delete window[cbName];
+      const s = document.getElementById(cbName);
+      if(s) s.remove();
+      reject(new Error("Timeout - กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต"));
+    }, 30000);
+
+    window[cbName] = (res) => {
+      clearTimeout(timer);
+      delete window[cbName];
+      const s = document.getElementById(cbName);
+      if(s) s.remove();
+      res && res.result === "success" ? resolve(res) : reject(new Error(res?.message || "GAS Error"));
+    };
+
+    const qs = "callback=" + cbName + "&data=" + encodeURIComponent(JSON.stringify(payload));
+    const script = document.createElement("script");
+    script.id = cbName;
+    script.src = GAS_URL + "?" + qs;
+    script.onerror = () => {
+      clearTimeout(timer);
+      delete window[cbName];
+      script.remove();
+      reject(new Error("เชื่อมต่อ GAS ไม่ได้"));
+    };
+    document.head.appendChild(script);
+  });
+}
+
+// ── INIT ──
+async function init() {
+  document.getElementById("totalItems").textContent = items.length;
+  const deptSel = document.getElementById("issDept");
+  DEPARTMENTS.forEach(d => { deptSel.innerHTML += `<option value="${d}">${d}</option>`; });
+  document.getElementById("issDoc").value = genDoc();
+
+  // โหลดยอดคงเหลือจาก Google Sheet ก่อน
+  await loadBalances();
+
+  populateItemSelects();
+  renderStock();
+  pingGAS();
+}
+
+function populateItemSelects() {
+  const rcvSel = document.getElementById("rcvCode");
+  const issSel = document.getElementById("issCode");
+  rcvSel.innerHTML = '<option value="">-- เลือกสินค้า --</option>';
+  issSel.innerHTML = '<option value="">-- เลือกสินค้า --</option>';
+  items.forEach(i => {
+    rcvSel.innerHTML += `<option value="${i.code}">${i.code} – ${i.name}</option>`;
+    issSel.innerHTML += `<option value="${i.code}">${i.code} – ${i.name} [${i.balance} ${i.unit}]</option>`;
+  });
+}
+
+async function loadBalances() {
+  // แสดง loading
+  document.getElementById("gasText").textContent = "⏳ กำลังโหลดยอดคงเหลือ...";
+  try {
+    const data = await new Promise((resolve, reject) => {
+      const cbName = "_bal" + Date.now();
+      const timer = setTimeout(() => {
+        delete window[cbName];
+        const s = document.getElementById(cbName);
+        if(s) s.remove();
+        reject(new Error("Timeout"));
+      }, 30000);
+      window[cbName] = (res) => {
+        clearTimeout(timer);
+        delete window[cbName];
+        const s = document.getElementById(cbName);
+        if(s) s.remove();
+        resolve(res);
+      };
+      const script = document.createElement("script");
+      script.id = cbName;
+      script.src = GAS_URL + "?action=getBalance&callback=" + cbName;
+      script.onerror = () => { clearTimeout(timer); delete window[cbName]; script.remove(); reject(new Error("Script error")); };
+      document.head.appendChild(script);
+    });
+
+    if (data.result === "success" && data.balances) {
+      let updated = 0;
+      items.forEach(item => {
+        if (data.balances[item.code] !== undefined) {
+          item.balance = data.balances[item.code];
+          updated++;
+        }
+      });
+      console.log("โหลดยอดคงเหลือสำเร็จ:", updated, "รายการ");
+    }
+  } catch(e) {
+    console.log("ไม่สามารถโหลดยอดได้:", e.message);
+  }
+}
+
+function genDoc() {
+  const d = new Date();
+  return "REQ-" + d.getFullYear() + String(d.getMonth()+1).padStart(2,"0") + String(d.getDate()).padStart(2,"0") + "-" + String(d.getHours()).padStart(2,"0") + String(d.getMinutes()).padStart(2,"0");
+}
+
+// ── GAS PING ──
+async function pingGAS() {
+  // ลองเชื่อมต่อ GAS 3 ครั้ง
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    await new Promise(r => setTimeout(r, attempt * 2000));
+    try {
+      await sendToGAS({action:"ping", rows:[]});
+      setGasStatus(true);
+      return;
+    } catch(e) {
+      console.log("GAS ping attempt " + attempt + " failed:", e.message);
+      if (attempt === 3) setGasStatus(false);
+    }
+  }
+}
+
+function setGasStatus(ok) {
+  const dot  = document.getElementById("gasDot");
+  const txt  = document.getElementById("gasText");
+  const wrap = document.getElementById("gasStatus");
+  if(ok) {
+    dot.style.background = "#34d399";
+    txt.textContent = "🔗 Google Sheet พร้อม";
+    wrap.style.color = "#34d399";
+    wrap.style.background = "#052e16";
+    wrap.style.borderColor = "#166534";
+  } else {
+    dot.style.background = "#f87171";
+    txt.textContent = "❌ GAS เชื่อมต่อไม่ได้";
+    wrap.style.color = "#f87171";
+    wrap.style.background = "#3b1f1f";
+    wrap.style.borderColor = "#991b1b";
+  }
+}
+
+// ── TAB ──
+function switchTab(n) {
+  for(let i=0;i<4;i++){
+    document.getElementById("tab"+i).style.display = i===n?"block":"none";
+    document.querySelectorAll(".tab-btn")[i].classList.toggle("active", i===n);
+  }
+  currentTab = n;
+}
+
+// ── STOCK ──
+function renderStock() {
+  const q = document.getElementById("searchInput").value.toLowerCase();
+  const filtered = items.filter(i => i.code.toLowerCase().includes(q) || i.name.toLowerCase().includes(q));
+  document.getElementById("statTotal").textContent = items.length;
+  document.getElementById("statHas").textContent   = items.filter(i=>i.balance>0).length;
+  document.getElementById("statZero").textContent  = items.filter(i=>i.balance<=0).length;
+  document.getElementById("stockBody").innerHTML   = filtered.map((item,idx) => `
+    <tr>
+      <td style="color:#64748b;font-size:11px">${idx+1}</td>
+      <td style="font-family:monospace;color:#93c5fd;font-size:12px">${item.code}</td>
+      <td>${item.name}</td>
+      <td style="color:#94a3b8">${item.unit}</td>
+      <td><span class="${item.balance>50?'badge-ok':item.balance>0?'badge-low':'badge-zero'}">${item.balance.toLocaleString()}</span></td>
+    </tr>`).join("");
+}
+
+// ── RECEIVE INFO ──
+function updateRcvInfo() {
+  const code = document.getElementById("rcvCode").value;
+  const item = items.find(i=>i.code===code);
+  const el   = document.getElementById("rcvInfo");
+  if(item){ el.style.display="block"; el.innerHTML=`<b style="color:#60a5fa">${item.name}</b> · คงเหลือ: <b style="color:#34d399">${item.balance} ${item.unit}</b>`; }
+  else { el.style.display="none"; }
+}
+
+// ── ISSUE INFO ──
+function updateIssInfo() {
+  const code = document.getElementById("issCode").value;
+  const item = items.find(i=>i.code===code);
+  const el   = document.getElementById("issInfo");
+  if(item){ el.style.display="block"; el.innerHTML=`คงเหลือ: <b style="color:#34d399">${item.balance} ${item.unit}</b>`; }
+  else { el.style.display="none"; }
+}
+
+// ── RECEIVE ──
+async function handleReceive() {
+  const code = document.getElementById("rcvCode").value;
+  const qty  = +document.getElementById("rcvQty").value;
+  const doc  = document.getElementById("rcvDoc").value;
+  const note = document.getElementById("rcvNote").value;
+  if(!code || !qty || qty<=0){ Swal.fire({icon:"error",title:"ข้อมูลไม่ครบ",text:"กรุณาเลือกสินค้าและจำนวน",background:"#1a1f2e",color:"#e2e8f0",confirmButtonColor:"#2563eb"}); return; }
+  const item = items.find(i=>i.code===code);
+  const now  = new Date().toLocaleString("th-TH");
+  const row  = {date:now,type:"รับเข้า",doc:doc||"-",code,name:item.name,unit:item.unit,qty,dept:"Store",note:note||"-",balanceBefore:item.balance,balanceAfter:item.balance+qty};
+
+  Swal.fire({title:"⏳ กำลังบันทึก...",html:"กำลังส่งข้อมูลไป Google Sheet...",allowOutsideClick:false,didOpen:()=>Swal.showLoading(),background:"#1a1f2e",color:"#e2e8f0"});
+  try {
+    await sendToGAS({action:"receive",rows:[row]});
+    item.balance += qty;
+    history.unshift({id:Date.now(),...row});
+    document.getElementById("rcvCode").value="";
+    document.getElementById("rcvQty").value="";
+    document.getElementById("rcvDoc").value="";
+    document.getElementById("rcvNote").value="";
+    document.getElementById("rcvInfo").style.display="none";
+    renderStock();
+    refreshIssueSelect();
+    setGasStatus(true);
+    Swal.fire({icon:"success",title:"บันทึกสำเร็จ ✅",text:`รับเข้า "${item.name}" จำนวน ${qty} ${item.unit}`,timer:2800,showConfirmButton:false,background:"#1a1f2e",color:"#e2e8f0",iconColor:"#34d399"});
+  } catch(e) {
+    setGasStatus(false);
+    Swal.fire({icon:"error",title:"บันทึกไม่สำเร็จ ❌",html:`<div style="font-size:13px;color:#fca5a5">${e.message}</div>`,background:"#1a1f2e",color:"#e2e8f0",confirmButtonColor:"#2563eb"});
+  }
+}
+
+// ── CART ──
+function addToCart() {
+  const code = document.getElementById("issCode").value;
+  const qty  = +document.getElementById("issQty").value;
+  if(!code||!qty||qty<=0){ Swal.fire({icon:"error",title:"ข้อมูลไม่ครบ",text:"กรุณาเลือกสินค้าและจำนวน",background:"#1a1f2e",color:"#e2e8f0",confirmButtonColor:"#2563eb"}); return; }
+  const item = items.find(i=>i.code===code);
+  const already = cart.find(c=>c.code===code)?.qty||0;
+  if(qty+already>item.balance){ Swal.fire({icon:"error",title:"ของไม่พอ",text:`คงเหลือมีเพียง ${item.balance} ${item.unit}`,background:"#1a1f2e",color:"#e2e8f0",confirmButtonColor:"#2563eb"}); return; }
+  const ex = cart.find(c=>c.code===code);
+  if(ex) ex.qty+=qty; else cart.push({code,name:item.name,unit:item.unit,qty});
+  document.getElementById("issCode").value="";
+  document.getElementById("issQty").value="";
+  document.getElementById("issInfo").style.display="none";
+  renderCart();
+}
+
+function renderCart() {
+  document.getElementById("cartCount").textContent = cart.length;
+  if(!cart.length){
+    document.getElementById("cartItems").innerHTML = `<div style="color:#475569;text-align:center;padding:40px 0;font-size:13px">ยังไม่มีรายการ</div>`;
+    document.getElementById("cartSubmit").style.display="none"; return;
+  }
+  document.getElementById("cartItems").innerHTML = cart.map((c,i)=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;background:#0f1117;border-radius:8px;padding:10px 14px;margin-bottom:8px">
+      <div>
+        <div style="font-size:11px;color:#93c5fd;font-family:monospace">${c.code}</div>
+        <div style="font-size:13px">${c.name}</div>
+        <div style="font-size:12px;color:#f59e0b;font-weight:700">${c.qty} ${c.unit}</div>
+      </div>
+      <button onclick="removeCart(${i})" style="background:#7f1d1d;border:none;color:#fca5a5;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;font-family:inherit">ลบ</button>
+    </div>`).join("");
+  document.getElementById("cartSubmit").style.display="block";
+}
+
+function removeCart(i){ cart.splice(i,1); renderCart(); }
+
+// ── ISSUE ──
+async function handleIssue() {
+  if(!cart.length){ Swal.fire({icon:"error",title:"ไม่มีรายการ",text:"กรุณาเพิ่มรายการก่อน",background:"#1a1f2e",color:"#e2e8f0",confirmButtonColor:"#2563eb"}); return; }
+  const dept = document.getElementById("issDept").value;
+  const doc  = document.getElementById("issDoc").value;
+  const note = document.getElementById("issNote").value;
+  if(!dept){ Swal.fire({icon:"error",title:"ยังไม่เลือกแผนก",text:"กรุณาเลือกแผนกที่เบิก",background:"#1a1f2e",color:"#e2e8f0",confirmButtonColor:"#2563eb"}); return; }
+  const now  = new Date().toLocaleString("th-TH");
+  const rows = cart.map(c => {
+    const item = items.find(i=>i.code===c.code);
+    return {date:now,type:"เบิกจ่าย",doc,code:c.code,name:c.name,unit:c.unit,qty:c.qty,dept,note:note||"-",balanceBefore:item?.balance??0,balanceAfter:(item?.balance??0)-c.qty};
+  });
+
+  Swal.fire({title:"⏳ กำลังบันทึก...",html:`กำลังส่ง ${rows.length} รายการไป Google Sheet...`,allowOutsideClick:false,didOpen:()=>Swal.showLoading(),background:"#1a1f2e",color:"#e2e8f0"});
+  try {
+    for(let i=0;i<rows.length;i++){
+      await sendToGAS({action:"issue",rows:[rows[i]]});
+      if(i<rows.length-1) await new Promise(r=>setTimeout(r,400));
+    }
+    cart.forEach(c=>{ const item=items.find(i=>i.code===c.code); if(item) item.balance-=c.qty; });
+    rows.forEach((r,i)=>history.unshift({id:Date.now()+i,...r}));
+    const savedDoc = doc;
+    cart=[]; document.getElementById("issDept").value=""; document.getElementById("issNote").value=""; document.getElementById("issDoc").value=genDoc();
+    renderCart(); renderStock(); refreshIssueSelect();
+    setGasStatus(true);
+    Swal.fire({icon:"success",title:"บันทึกสำเร็จ ✅",text:`เบิกจ่าย ${rows.length} รายการ เลขที่ ${savedDoc}`,timer:2800,showConfirmButton:false,background:"#1a1f2e",color:"#e2e8f0",iconColor:"#34d399"});
+  } catch(e) {
+    setGasStatus(false);
+    Swal.fire({icon:"error",title:"บันทึกไม่สำเร็จ ❌",html:`<div style="font-size:13px;color:#fca5a5">${e.message}</div>`,background:"#1a1f2e",color:"#e2e8f0",confirmButtonColor:"#2563eb"});
+  }
+}
+
+// ── HISTORY ──
+function renderHistory() {
+  const q = document.getElementById("histSearch").value.toLowerCase();
+  const filtered = history.filter(h=>!q||[h.code,h.name,h.dept,h.doc].join(" ").toLowerCase().includes(q)).slice(0,100);
+  if(!filtered.length){
+    document.getElementById("histBody").innerHTML=`<tr><td colspan="9" style="text-align:center;color:#475569;padding:40px">ยังไม่มีประวัติ</td></tr>`; return;
+  }
+  document.getElementById("histBody").innerHTML = filtered.map(h=>`
+    <tr>
+      <td style="font-size:11px;color:#64748b;white-space:nowrap">${h.date}</td>
+      <td><span style="padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:${h.type==="รับเข้า"?"#052e16":"#1c1208"};color:${h.type==="รับเข้า"?"#34d399":"#fbbf24"}">${h.type==="รับเข้า"?"📥 รับเข้า":"📤 เบิกจ่าย"}</span></td>
+      <td style="font-family:monospace;font-size:11px;color:#93c5fd">${h.doc}</td>
+      <td style="font-family:monospace;font-size:11px;color:#a78bfa">${h.code}</td>
+      <td>${h.name}</td>
+      <td style="text-align:right;font-weight:700;color:${h.type==="รับเข้า"?"#34d399":"#fbbf24"}">${h.type==="รับเข้า"?"+":"-"}${h.qty}</td>
+      <td style="color:#64748b">${h.unit}</td>
+      <td style="font-size:12px;color:#94a3b8">${h.dept}</td>
+      <td style="font-size:11px;color:#64748b">${h.note}</td>
+    </tr>`).join("");
+}
+
+function refreshIssueSelect() {
+  populateItemSelects();
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
